@@ -210,7 +210,7 @@
       var weak = found.filter(function (k) { return k.bits && k.bits < 2048 && !k.revoked; });
       if (weak.length) {
         out.status = 'warn';
-        out.verdict = 'Found ' + found.length + ' key' + (found.length > 1 ? 's' : '') + '. ' + weak.map(function (k) { return k.selector; }).join(', ') + ' is under 2048-bit.';
+        out.verdict = 'Found ' + found.length + ' key' + (found.length > 1 ? 's' : '') + '. ' + weak.map(function (k) { return k.selector; }).join(', ') + (weak.length > 1 ? ' are' : ' is') + ' under 2048-bit.';
       } else {
         out.status = 'ok';
         out.verdict = 'Found ' + found.length + ' key' + (found.length > 1 ? 's' : '') + ': ' + found.map(function (k) { return k.selector + (k.bits ? ' (' + k.bits + '-bit)' : ''); }).join(', ') + '.';
