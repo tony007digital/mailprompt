@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mailprompt</title>
+<meta name="description" content="Describe what you want to see about your email sending. mailprompt builds the view. Free, open source, runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237EA6FF'/%3E%3Cpath d='M9 12l5 4-5 4M16 21h7' fill='none' stroke='%230F1115' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>
+  (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem('mailprompt.v1') || 'null');
+      if (s && s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+<a class="skip" href="#q">Skip to the prompt</a>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M6 8l5 4-5 4"></path><path d="M13 17h6"></path></svg>
+    </span>
+    <span class="name">mailprompt</span>
+    <span class="tagline">See what you want. Skip the platform menus.</span>
+  </div>
+  <div class="top-r">
+    <span id="source" class="source mono">No sending log</span>
+    <button type="button" class="btn ghost" id="upload-btn" aria-label="Load CSV">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4"></path><path d="M7 9l5-5 5 5"></path><path d="M4 20h16"></path></svg>
+      <span class="lbl">Load CSV</span>
+    </button>
+    <a class="btn ghost" href="media/mailprompt-demo.mp4" target="_blank" rel="noopener" aria-label="Demo video">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+      <span class="lbl">Demo video</span>
+    </a>
+    <button type="button" class="ib" id="theme-btn" aria-label="Switch light or dark theme">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+    </button>
+    <button type="button" class="ib" id="settings-btn" aria-label="Settings">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h9M19 6h1M4 12h2M12 12h8M4 18h11"></path><circle cx="16" cy="6" r="2.5"></circle><circle cx="9" cy="12" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle></svg>
+    </button>
+    <a class="ib" href="https://github.com/tony007digital/mailprompt" target="_blank" rel="noopener" aria-label="mailprompt on GitHub">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"></path></svg>
+    </a>
+  </div>
+</header>
+
+<div class="bar-wrap">
+  <form id="ask" class="ask" autocomplete="off">
+    <span class="caret mono" aria-hidden="true">&gt;</span>
+    <label for="q" class="sr">Ask or describe what you want to see</label>
+    <input id="q" name="q" type="text" spellcheck="false" placeholder="Describe what you want to see, or type help">
+    <button type="submit" class="run" aria-label="Run">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+    </button>
+  </form>
+  <div id="agent" class="agent" role="status" aria-live="polite">
+    <span id="you" class="you mono"></span>
+    <p id="said" class="said"></p>
+  </div>
+  <nav id="views" class="views" aria-label="Saved views"></nav>
+</div>
+
+<main id="main">
+  <section id="empty" class="empty" aria-labelledby="empty-h">
+    <h1 id="empty-h">What do you want to see?</h1>
+    <p>Type it in plain words. mailprompt builds the view from your DNS and sending logs. No platform menus to learn.</p>
+    <div class="chips">
+      <button type="button" class="chip big" data-cmd="demo">Try the demo</button>
+      <button type="button" class="chip big" data-fill="check yourdomain.com">check yourdomain.com</button>
+      <button type="button" class="chip big" data-cmd="help">help</button>
+    </div>
+    <p class="muted small">Have a PowerMTA or ESP export? Drop the CSV anywhere on this page. It never leaves your browser.
+      <button type="button" class="linkish" id="sample-dl">Download a sample CSV</button></p>
+  </section>
+  <div id="tiles" class="tiles"></div>
+</main>
+
+<div id="drop" class="drop" hidden>
+  <div class="drop-in">
+    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4"></path><path d="M7 9l5-5 5 5"></path><path d="M4 20h16"></path></svg>
+    <p>Drop your CSV to load it</p>
+    <p class="muted small">PowerMTA accounting files and most ESP event exports</p>
+  </div>
+</div>
+
+<input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden>
+
+<dialog id="settings" aria-labelledby="settings-h">
+  <form method="dialog" class="dlg">
+    <h2 id="settings-h">Ask in your own words</h2>
+    <p class="muted">Optional. Without a key, mailprompt still understands plain commands. With a Claude API key, it also understands anything else you type.</p>
+    <label for="api-key">Claude API key</label>
+    <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+    <label for="api-model">Model</label>
+    <input id="api-model" type="text" spellcheck="false" placeholder="claude-haiku-5-5">
+    <p class="muted small">Your key is saved only in this browser and sent only to api.anthropic.com. mailprompt sends your question and summary numbers, never your log file.</p>
+    <div class="dlg-row">
+      <button type="button" class="btn ghost" id="key-remove">Remove key</button>
+      <span class="grow"></span>
+      <button type="submit" class="btn ghost" value="cancel">Cancel</button>
+      <button type="submit" class="btn primary" value="save" id="key-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/demo-data.js"></script>
+<script src="js/dns.js"></script>
+<script src="js/logs.js"></script>
+<script src="js/tiles.js"></script>
+<script src="js/agent.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
