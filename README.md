@@ -7,7 +7,8 @@ mailprompt is a prompt box for email engineers and marketers. Type what you want
 ![mailprompt demo](media/mailprompt-demo.gif)
 
 **Try it now, no install:** [tony007digital.github.io/mailprompt/?demo](https://tony007digital.github.io/mailprompt/?demo)
-**Watch the 75-second walkthrough:** [media/mailprompt-demo.mp4](media/mailprompt-demo.mp4)
+
+**Watch the 80-second walkthrough:** [media/mailprompt-demo.mp4](media/mailprompt-demo.mp4)
 
 ---
 
