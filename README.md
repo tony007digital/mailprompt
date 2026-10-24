@@ -8,7 +8,7 @@ mailprompt is a prompt box for email engineers, developers and marketers. Type w
 
 **Try it now, no install:** [sending log demo](https://tony007digital.github.io/mailprompt/?demo) · [QA a sample email](https://tony007digital.github.io/mailprompt/?q=sample%20template)
 
-**Watch the 80-second walkthrough:** [media/mailprompt-demo.mp4](media/mailprompt-demo.mp4)
+**Watch the 2-minute walkthrough:** [media/mailprompt-demo.mp4](media/mailprompt-demo.mp4)
 
 ---
 
@@ -66,6 +66,8 @@ Several requests in one sentence work too. Tiles show up in the order you mentio
 ## For email developers
 
 Paste your email HTML straight into the prompt box, or drop an `.html` or `.eml` file anywhere on the page. mailprompt saves it as a template and runs the checks right away, in your browser.
+
+![mailprompt email QA](media/mailprompt-dev.gif)
 
 | You type | You get |
 |---|---|
