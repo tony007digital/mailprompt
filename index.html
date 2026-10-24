@@ -74,10 +74,12 @@
     <p>Type it in plain words. mailprompt builds the view from your DNS and sending logs. No platform menus to learn.</p>
     <div class="chips">
       <button type="button" class="chip big" data-cmd="demo">Try the demo</button>
+      <button type="button" class="chip big" data-cmd="sample template">QA a sample email</button>
       <button type="button" class="chip big" data-fill="check yourdomain.com">check yourdomain.com</button>
       <button type="button" class="chip big" data-cmd="help">help</button>
     </div>
-    <p class="muted small">Have a PowerMTA or ESP export? Drop the CSV anywhere on this page. It never leaves your browser.
+    <p class="muted small">Building an email? Paste its HTML into the box above, or drop an .html or .eml file anywhere on this page.
+      Have a PowerMTA or ESP export? Drop the CSV. Files never leave your browser.
       <button type="button" class="linkish" id="sample-dl">Download a sample CSV</button></p>
   </section>
   <div id="tiles" class="tiles"></div>
@@ -86,22 +88,42 @@
 <div id="drop" class="drop" hidden>
   <div class="drop-in">
     <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 16V4"></path><path d="M7 9l5-5 5 5"></path><path d="M4 20h16"></path></svg>
-    <p>Drop your CSV to load it</p>
-    <p class="muted small">PowerMTA accounting files and most ESP event exports</p>
+    <p>Drop it to load it</p>
+    <p class="muted small">.html or .eml to QA an email · .csv for PowerMTA or ESP logs</p>
   </div>
 </div>
 
-<input type="file" id="file" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden>
+<input type="file" id="file" accept=".csv,.tsv,.txt,.html,.htm,.eml,text/csv,text/plain,text/html,message/rfc822" hidden>
+
+<dialog id="paste" aria-labelledby="paste-h">
+  <form method="dialog" class="dlg">
+    <h2 id="paste-h">Paste email HTML</h2>
+    <p class="muted">It's saved in this browser only and checked right away.</p>
+    <label for="paste-name">Name (optional)</label>
+    <input id="paste-name" type="text" spellcheck="false" placeholder="Welcome email">
+    <label for="paste-html">HTML</label>
+    <textarea id="paste-html" rows="10" spellcheck="false" placeholder="<!DOCTYPE html>..."></textarea>
+    <div class="dlg-row">
+      <span class="grow"></span>
+      <button type="submit" class="btn ghost" value="cancel">Cancel</button>
+      <button type="submit" class="btn primary" value="go" id="paste-go">Check it</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="settings" aria-labelledby="settings-h">
   <form method="dialog" class="dlg">
-    <h2 id="settings-h">Ask in your own words</h2>
-    <p class="muted">Optional. Without a key, mailprompt still understands plain commands. With a Claude API key, it also understands anything else you type.</p>
+    <h2 id="settings-h">Settings</h2>
+    <p class="muted">Optional. Without a key, mailprompt still understands plain commands and runs every rule check. With a Claude API key, it also understands anything else you type and can do an AI review of a template.</p>
     <label for="api-key">Claude API key</label>
     <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
-    <label for="api-model">Model</label>
+    <label for="api-model">Model for questions</label>
     <input id="api-model" type="text" spellcheck="false" placeholder="claude-haiku-5-5">
-    <p class="muted small">Your key is saved only in this browser and sent only to api.anthropic.com. mailprompt sends your question and summary numbers, never your log file.</p>
+    <label for="review-model">Model for AI review of templates</label>
+    <input id="review-model" type="text" spellcheck="false" placeholder="claude-sonnet-5-5">
+    <p class="muted small">Your key is saved only in this browser and sent only to api.anthropic.com. Questions send your words and summary numbers, never your log file. AI review sends the one template you ask it to review.</p>
+    <label for="kl-code">Klaviyo connector pairing code</label>
+    <input id="kl-code" type="text" autocomplete="off" spellcheck="false" placeholder="Shown when you run node connector/klaviyo-connect.js">
     <div class="dlg-row">
       <button type="button" class="btn ghost" id="key-remove">Remove key</button>
       <span class="grow"></span>
@@ -114,9 +136,16 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="js/demo-data.js"></script>
+<script src="js/demo-template.js"></script>
 <script src="js/dns.js"></script>
 <script src="js/logs.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/html-qa.js"></script>
+<script src="js/eml.js"></script>
+<script src="js/ai-review.js"></script>
+<script src="js/klaviyo.js"></script>
 <script src="js/tiles.js"></script>
+<script src="js/tiles-dev.js"></script>
 <script src="js/agent.js"></script>
 <script src="js/app.js"></script>
 </body>

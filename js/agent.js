@@ -20,6 +20,9 @@
   ];
 
   var TARGETS = [
+    [/preview/, 'tpl-preview'], [/\blinks?\b/, 'tpl-links'], [/images?/, 'tpl-images'], [/merge/, 'tpl-merge'],
+    [/outlook|dark/, 'tpl-outlook'], [/\bqa\b/, 'tpl-summary'], [/klaviyo/, 'klaviyo'], [/headers?/, 'eml-headers'],
+    [/\bai\b|ai review/, 'ai-review'], [/templates|library/, 'tpl-library'],
     [/queues?|vmta/, 'queues'], [/deferrals?/, 'deferrals'], [/bounces?/, 'bounces'], [/providers?/, 'providers'],
     [/timeline/, 'timeline'], [/codes?/, 'codes'], [/campaigns?/, 'campaigns'], [/complaints?/, 'complaints'],
     [/summary/, 'summary'], [/trace/, 'trace'], [/readiness/, 'dns-readiness'], [/spf/, 'dns-spf'],
@@ -52,6 +55,60 @@
     ];
   }
 
+  // ---------- Email developer requests ----------
+  var DEV_WORDS = /\b(qa|template|html|links?|utms?|images?|alt|merge|personali[sz]ation|liquid|ampscript|handlebars|fallbacks?|outlook|mso|vml|dark ?mode|preview|render|preheader|clip(ping|ped)?|ai review|copilot|audit)\b/;
+  var LOGGY = /defer|bounce|queue|vmta|complain|provider|deliver|timeline|campaign|\bcodes?\b|overnight|morning/;
+  var DEV_CHECKS = [
+    [/\blinks?\b|\butms?\b|tracking/, 'tpl-links'],
+    [/images?|alt text|\balt\b/, 'tpl-images'],
+    [/merge|personali[sz]|liquid|ampscript|handlebars|fallback/, 'tpl-merge'],
+    [/outlook|\bmso\b|vml|dark ?mode|gmail/, 'tpl-outlook'],
+    [/preview|render|look like|see it/, 'tpl-preview'],
+    [/ai review|copilot|ai qa|deep review|explain|suggest/, 'ai-review'],
+    [/clip|size|preheader|unsubscribe|summary/, 'tpl-summary']
+  ];
+
+  function devPlan(t, low, ctx) {
+    var m, s = low.trim();
+    if (/^paste( (a|an|my|the))?( html| template| email| code)?$/.test(s)) return { ops: [{ op: 'paste' }] };
+    if (/^(upload|open file|load file|upload (an? )?(html|template|eml|file|email))$/.test(s)) return { ops: [{ op: 'upload' }] };
+    if ((m = t.trim().match(/^connect klaviyo\s*([A-Za-z0-9-]*)$/i))) return { ops: [{ op: 'connect', code: m[1].toUpperCase() }] };
+    if (/^(disconnect|unpair|forget) klaviyo/.test(s)) return { ops: [{ op: 'disconnect' }] };
+    if (/\b(sample|demo|example) (template|email|html)\b/.test(s)) return { ops: [{ op: 'sampleTemplate' }] };
+    if (/klaviyo/.test(s)) return { tiles: [{ type: 'klaviyo' }] };
+    if (/\b(headers?|eml)\b/.test(s) && !/\btemplate\b/.test(s)) {
+      if (ctx.hasEml) return { tiles: [{ type: 'eml-headers', params: { eml: ctx.lastEml }, size: 'L' }] };
+      return { say: 'Drop an .eml file on the page (in Gmail: More > Download message; in Outlook: Save as) and I\'ll check its headers.' };
+    }
+
+    var named = ctx.findTemplate ? ctx.findTemplate(t) : null;
+    var devish = DEV_WORDS.test(s);
+    if (!named && /\b(templates|template library|my templates|library)\b/.test(s)) return { tiles: [{ type: 'tpl-library' }] };
+    if (!named && (!devish || LOGGY.test(s))) return null;
+    var tpl = named || ctx.activeTpl;
+    if (!tpl) {
+      if (!ctx.hasTemplates) return { say: 'No templates yet. Paste HTML into this box, drop an .html file on the page, or type: sample template' };
+      return { tiles: [{ type: 'tpl-library' }], say: 'Which template? Say its name, like: qa ' + ctx.firstTemplateName };
+    }
+    var p = { tpl: tpl.id };
+    var picks = [];
+    DEV_CHECKS.forEach(function (c) {
+      var at = s.search(c[0]);
+      if (at > -1) picks.push({ type: c[1], params: p, pos: at });
+    });
+    picks.sort(function (a, b) { return a.pos - b.pos; });
+    picks.forEach(function (x) { delete x.pos; });
+    if (!picks.length) {
+      if (/\b(show|open|see|view|display)\b/.test(s)) picks = [{ type: 'tpl-preview', params: p, size: 'L' }, { type: 'tpl-summary', params: p, size: 'M' }];
+      else picks = [
+        { type: 'tpl-summary', params: p, size: 'M' }, { type: 'tpl-preview', params: p, size: 'M' },
+        { type: 'tpl-links', params: p, size: 'L' }, { type: 'tpl-images', params: p, size: 'S' },
+        { type: 'tpl-merge', params: p, size: 'S' }, { type: 'tpl-outlook', params: p, size: 'M' }
+      ];
+    }
+    return { tiles: picks, activeTpl: tpl.id };
+  }
+
   function route(text, ctx) {
     var t = String(text || '').trim();
     var low = t.toLowerCase();
@@ -64,7 +121,7 @@
     if ((m = t.match(/^save(?: this)?(?: view| layout)?(?: as)?\s+(.+)$/i))) { plan.ops.push({ op: 'save', name: m[1].replace(/["']/g, '').trim() }); return plan; }
     if ((m = t.match(/^(?:delete|remove)\s+view\s+(.+)$/i))) { plan.ops.push({ op: 'deleteView', name: m[1].trim() }); return plan; }
     if (/^(load |use |try |run |show )?(the |me the |a )?(demo|sample)( data| log| mode)?$/.test(low)) { plan.ops.push({ op: 'demo' }); return plan; }
-    if ((m = t.match(/^(?:open|load|go to)(?: view| my)?\s+(.+?)(?: view)?$/i))) {
+    if ((m = t.match(/^(?:open|load|go to)(?: view| my)?\s+(.+?)(?: view)?$/i)) && !(ctx.findTemplate && ctx.findTemplate(t)) && !/\b(template|html|email|file|eml)\b/.test(low)) {
       var vn = ctx.viewNamed(m[1].trim());
       if (vn) plan.ops.push({ op: 'open', name: vn });
       else plan.say = 'No saved view named "' + m[1].trim() + '". Set up the tiles you want, then type: save view as ' + m[1].trim();
@@ -84,6 +141,16 @@
 
     // Strip layout phrases before looking for content.
     var content = low.replace(sizeRe, ' ').replace(growRe, ' ').replace(hideRe, ' ');
+
+    // Email developer requests (templates, QA, Klaviyo, .eml) come first.
+    var dev = devPlan(t, content, ctx);
+    if (dev) {
+      (dev.tiles || []).forEach(function (x) { plan.tiles.push(x); });
+      (dev.ops || []).forEach(function (o) { plan.ops.push(o); });
+      if (dev.say) plan.say = dev.say;
+      if (dev.activeTpl) plan.activeTpl = dev.activeTpl;
+      return plan;
+    }
 
     // Email address: trace it.
     var emails = t.match(EMAIL_RE) || [];
@@ -136,7 +203,7 @@
   function catalogText() {
     var c = MP.tiles.catalog;
     return Object.keys(c).map(function (k) {
-      var extra = k === 'trace' ? ' params: {"email": "<address>"}' : /^dns-/.test(k) ? ' params: {"domain": "<domain>"}' + (k === 'dns-dkim' ? ' optional "selectors": ["s1"]' : '') : '';
+      var extra = k === 'trace' ? ' params: {"email": "<address>"}' : /^dns-/.test(k) ? ' params: {"domain": "<domain>"}' + (k === 'dns-dkim' ? ' optional "selectors": ["s1"]' : '') : c[k].needs === 'tpl' ? ' params: {"template": "<template name>"}' : '';
       return '- ' + k + ': ' + c[k].title + (c[k].needs === 'log' ? ' (needs a sending log)' : '') + extra;
     }).join('\n');
   }
@@ -154,6 +221,7 @@
     } else {
       lines.push('No sending log is loaded. The user can type "demo" or upload a CSV.');
     }
+    if (ctx.templateNames && ctx.templateNames.length) lines.push('Saved email templates: ' + ctx.templateNames.slice(0, 30).join('; ') + '.');
     if (ctx.tiles.length) lines.push('Tiles on screen: ' + ctx.tiles.map(function (x) { return x.type + (x.params && (x.params.domain || x.params.email) ? '(' + (x.params.domain || x.params.email) + ')' : ''); }).join(', ') + '.');
     return lines.join('\n');
   }
@@ -201,6 +269,8 @@
       x.params = x.params || {};
       if (x.type === 'trace' && !x.params.email) return false;
       if (/^dns-/.test(x.type) && !x.params.domain) return false;
+      if (cat[x.type].needs === 'tpl' && !x.params.template && !x.params.tpl) return false;
+      if (cat[x.type].needs === 'eml') return false;
       if (x.size && !/^[SML]$/.test(x.size)) delete x.size;
       return true;
     });

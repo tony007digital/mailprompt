@@ -1,0 +1,58 @@
+/* mailprompt demo template: a fictional bakery promo with a few typical
+   problems left in on purpose, so you can see the QA checks catch them. */
+(function (MP) {
+  'use strict';
+  MP.demoTemplate = {
+    name: 'Pumpkin loaves promo',
+    html: [
+      '<!DOCTYPE html>',
+      '<html lang="en" xmlns:o="urn:schemas-microsoft-com:office:office">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      '<title>Pumpkin loaves promo</title>',
+      '<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->',
+      '<style>',
+      '  body { margin: 0; padding: 0; background: #f4efe6; }',
+      '  .wrap { max-width: 600px; }',
+      '  .btn a { border-radius: 24px; }',
+      '  @media (max-width: 620px) { .wrap { width: 100% !important; } .pad { padding: 20px !important; } }',
+      '  @media (prefers-color-scheme: dark) { body, .bg { background: #1c1712 !important; } .card { background: #2a221b !important; } .foot { background: #231c16 !important; color: #d9cbb8 !important; } .foot a { color: #d9cbb8 !important; } .ink { color: #f4efe6 !important; } }',
+      '</style>',
+      '</head>',
+      '<body class="bg">',
+      '<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">Fresh pumpkin loaves are back Friday. Pre-order by Thursday and we\'ll hold one for you.&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg" style="background:#f4efe6;">',
+      '<tr><td align="center" style="padding:24px 12px;">',
+      '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->',
+      '<table role="presentation" class="wrap card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; background:#ffffff;">',
+      '<tr><td align="center" style="padding:28px 0 8px;"><a href="https://juniperbakery.example/?utm_source=email&utm_medium=email&utm_campaign=pumpkin"><img src="https://images.juniperbakery.example/logo.png" width="160" alt="Juniper Bakery" style="display:block; border:0;"></a></td></tr>',
+      '<tr><td><img src="https://images.juniperbakery.example/pumpkin-hero.jpg" style="display:block; width:100%; border:0;"></td></tr>',
+      '<tr><td class="pad ink" style="padding:32px 40px; font-family:Georgia, serif; color:#2b2118;">',
+      '<h1 style="margin:0 0 12px; font-size:30px; line-height:1.2;">Hi {{ first_name }}, pumpkin loaves are back</h1>',
+      '<p style="margin:0 0 16px; font-size:17px; line-height:1.6;">Our fall favorite returns this Friday, baked fresh every morning through November. *|FNAME|*, pre-order by Thursday night and we\'ll hold one for you.</p>',
+      '<p style="margin:0 0 24px; font-size:17px; line-height:1.6;">Want the recipe story? <a href="https://bit.ly/3pumpkn" style="color:#7a4a1e;">Read more</a></p>',
+      '<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn"><tr><td align="center" bgcolor="#7a4a1e" style="border-radius:24px;">',
+      '<!--[if mso]><v:roundrect href="https://juniperbakery.example/preorder" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="50%" fillcolor="#7a4a1e" stroke="f"><center style="color:#ffffff;font-family:Arial;font-size:16px;">Pre-order now</center></v:roundrect><![endif]-->',
+      '<!--[if !mso]><!--><a href="https://juniperbakery.example/preorder" style="display:inline-block; padding:14px 32px; color:#ffffff; font-family:Arial, sans-serif; font-size:16px; text-decoration:none;">Pre-order now</a><!--<![endif]-->',
+      '</td></tr></table>',
+      '</td></tr>',
+      '<tr><td style="padding:0 40px 32px;">',
+      '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>',
+      '<td width="50%" style="padding-right:8px;"><img src="https://images.juniperbakery.example/loaf.jpg" width="252" alt="Pumpkin loaf on a cooling rack" style="display:block; width:100%;"></td>',
+      '<td width="50%" style="padding-left:8px;"><img src="https://images.juniperbakery.example/shop.jpg" alt="" style="display:block; width:100%;"></td>',
+      '</tr></table>',
+      '</td></tr>',
+      '<tr><td class="foot" style="padding:24px 40px; background:#efe7da; font-family:Arial, sans-serif; font-size:13px; line-height:1.5; color:#5e4a33;">',
+      'Juniper Bakery &middot; [YOUR STREET ADDRESS]<br>',
+      '<a href="https://juniperbakery.example/hours" style="color:#5e4a33;">Hours and location</a> &middot; <a href="#" style="color:#5e4a33;">View in browser</a> &middot; <a href="{% unsubscribe_url %}" style="color:#5e4a33;">Unsubscribe</a>',
+      '</td></tr>',
+      '</table>',
+      '<!--[if mso]></td></tr></table><![endif]-->',
+      '</td></tr>',
+      '</table>',
+      '</body>',
+      '</html>'
+    ].join('\n')
+  };
+})(window.MP = window.MP || {});

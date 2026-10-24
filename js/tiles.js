@@ -323,6 +323,7 @@
           ['Start', ['demo', 'check yourdomain.com', 'help']],
           ['Sending log', ['show deferrals by provider', 'show bounces', 'show queues', 'timeline', 'top codes', 'by campaign', 'why did jane@yahoo.example bounce?']],
           ['DNS', ['spf yourdomain.com', 'dmarc yourdomain.com', 'dkim s1 yourdomain.com', 'mx yourdomain.com']],
+          ['Email developers', ['sample template', 'paste html', 'templates', 'links', 'merge tags', 'outlook', 'preview', 'ai review', 'klaviyo templates']],
           ['Your layout', ['make queues big', 'save view as Morning', 'open Morning', 'clear']]
         ];
         var body = groups.map(function (g) {
@@ -331,7 +332,7 @@
           }).join('') + '</div></div>';
         }).join('');
         return {
-          status: 'info', body: '<p class="muted">Or describe a whole morning in one sentence: <span class="mono">show me deferrals by provider, bounces, queues and check yourdomain.com. Make queues big.</span></p>' + body,
+          status: 'info', body: '<p class="muted">Or describe a whole morning in one sentence: <span class="mono">show me deferrals by provider, bounces, queues and check yourdomain.com. Make queues big.</span> Paste HTML straight into the prompt box to QA it, or drop an .html, .eml or .csv file anywhere.</p>' + body,
           foot: 'Add a Claude API key in settings to ask in your own words.'
         };
       }

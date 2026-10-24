@@ -8,10 +8,13 @@
   var esc = MP.tiles.esc;
   function $(s) { return document.querySelector(s); }
 
-  var state = { tiles: [], views: {}, current: null, logSource: null, theme: null };
-  var settings = { apiKey: '', model: 'claude-haiku-5-5' };
+  var state = { tiles: [], views: {}, current: null, logSource: null, theme: null, activeTpl: null };
+  var settings = { apiKey: '', model: 'claude-haiku-5-5', reviewModel: 'claude-sonnet-5-5' };
   var data = null;
   var dnsResults = {};
+  var emls = {}, lastEml = null, emlSeq = 0;
+  var aiResults = {};
+  var klState = null;
   var history = [], hIdx = 0, seq = 0, cmdSeq = 0;
   var SIZES = ['S', 'M', 'L'];
   var SIZE_NAME = { S: 'small', M: 'medium', L: 'large' };
@@ -34,13 +37,14 @@
         state.current = s.current || null;
         state.logSource = s.logSource || null;
         state.theme = s.theme || null;
+        state.activeTpl = s.activeTpl || null;
       }
     } catch (e) { /* storage unavailable: start fresh */ }
     try { Object.assign(settings, JSON.parse(localStorage.getItem(KEYSTORE) || '{}')); } catch (e) {}
   }
   function save() {
     try {
-      localStorage.setItem(STORE, JSON.stringify({ tiles: state.tiles, views: state.views, current: state.current, logSource: state.logSource, theme: state.theme }));
+      localStorage.setItem(STORE, JSON.stringify({ tiles: state.tiles, views: state.views, current: state.current, logSource: state.logSource, theme: state.theme, activeTpl: state.activeTpl }));
     } catch (e) {}
   }
   function saveSettings() { try { localStorage.setItem(KEYSTORE, JSON.stringify(settings)); } catch (e) {} }
@@ -51,12 +55,105 @@
     state.logSource = 'demo';
   }
 
+  // ---------- Templates and messages ----------
+  function addTemplate(html, name, source, meta) {
+    var t = MP.templates.add({ name: name || MP.templates.nameFrom(html, 'Pasted email'), html: html, source: source || 'paste', meta: meta });
+    state.activeTpl = t.id;
+    return t;
+  }
+
+  function qaTiles(t) {
+    var p = { tpl: t.id };
+    return [
+      { type: 'tpl-summary', params: p, size: 'M' }, { type: 'tpl-preview', params: p, size: 'M' },
+      { type: 'tpl-links', params: p, size: 'L' }, { type: 'tpl-images', params: p, size: 'S' },
+      { type: 'tpl-merge', params: p, size: 'S' }, { type: 'tpl-outlook', params: p, size: 'M' }
+    ];
+  }
+
+  function showTemplate(t, how) {
+    var fresh = prepend(qaTiles(t));
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    var out = output(fresh[0]);
+    say((how ? how + ' ' : '') + (out.say || t.name), out.status === 'fail' ? 'fail' : out.status === 'warn' ? 'warn' : null);
+    save();
+  }
+
+  function loadEml(text, name) {
+    var e = MP.eml.parse(text);
+    var id = 'eml' + (++emlSeq);
+    if (e.html) {
+      var t = addTemplate(e.html, e.subject || MP.templates.cleanName(name), 'eml', { from: e.from.domain });
+      e.tplName = t.name;
+    }
+    emls[id] = e; lastEml = id;
+    var specs = [{ type: 'eml-headers', params: { eml: id }, size: 'L' }];
+    if (e.tplName) specs.push({ type: 'tpl-summary', params: { tpl: state.activeTpl }, size: 'M' }, { type: 'tpl-preview', params: { tpl: state.activeTpl }, size: 'M' });
+    var fresh = prepend(specs);
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    var out = output(fresh[0]);
+    say('Loaded ' + name + '. ' + (out.say || ''), out.status === 'fail' ? 'fail' : out.status === 'warn' ? 'warn' : null);
+    save();
+  }
+
+  function ensureAi(t) {
+    var key = t.id + ':' + t.updated;
+    if (!settings.apiKey) return { nokey: true };
+    var a = aiResults[key];
+    if (a) return a;
+    a = aiResults[key] = { pending: true };
+    MP.ai.review(t, MP.qa.forTemplate(t), settings).then(function (r) {
+      a.pending = false; a.value = r;
+      rerenderWhere(function (x) { return x.type === 'ai-review' && x.params.tpl === t.id; });
+      var out = output(state.tiles.filter(function (x) { return x.type === 'ai-review' && x.params.tpl === t.id; })[0] || { type: 'ai-review', params: { tpl: t.id } });
+      if (out.say) say(out.say, out.status === 'fail' ? 'fail' : out.status === 'warn' ? 'warn' : null);
+    }, function (e) {
+      a.pending = false; a.error = e;
+      rerenderWhere(function (x) { return x.type === 'ai-review' && x.params.tpl === t.id; });
+      say('AI review failed: ' + e.message, 'fail');
+    });
+    return a;
+  }
+
+  function ensureKlaviyo(force) {
+    if (!MP.klaviyo.paired()) return null;
+    if (klState && !force) return klState;
+    var k = klState = { pending: true };
+    MP.klaviyo.list().then(function (list) {
+      k.pending = false; k.value = list;
+      rerenderWhere(function (x) { return x.type === 'klaviyo'; });
+      say(list.length ? 'Found ' + list.length + ' Klaviyo template' + (list.length > 1 ? 's' : '') + '. Import one to run the checks.' : 'Connected to Klaviyo, but there are no templates yet.', 'ok');
+    }, function (e) {
+      k.pending = false; k.error = e;
+      rerenderWhere(function (x) { return x.type === 'klaviyo'; });
+      say(e.message, 'fail');
+    });
+    return k;
+  }
+
+  function importKlaviyo(id) {
+    say('Importing from Klaviyo…', null, true);
+    MP.klaviyo.get(id).then(function (r) {
+      if (!r.html) throw new Error('Klaviyo returned no HTML for "' + (r.name || id) + '". System drag-and-drop templates may not include HTML.');
+      var t = addTemplate(r.html, r.name || 'Klaviyo template', 'klaviyo', { klaviyoId: id });
+      showTemplate(t, 'Imported from Klaviyo.');
+    }).catch(function (e) { say(e.message, 'fail'); });
+  }
+
   function loadFile(file) {
     var reader = new FileReader();
     say('Reading ' + file.name + '…', 'info', true);
     reader.onload = function () {
       try {
-        data = MP.logs.fromText(reader.result, { kind: 'file', name: file.name });
+        var text = String(reader.result || '');
+        if (/\.eml$/i.test(file.name) || (!/\.(csv|tsv)$/i.test(file.name) && MP.eml.looksLikeEml(text))) return loadEml(text, file.name);
+        if (/\.html?$/i.test(file.name) || (!/\.(csv|tsv)$/i.test(file.name) && MP.templates.looksLikeHtml(text))) {
+          var t = addTemplate(text, MP.templates.nameFrom(text, MP.templates.cleanName(file.name)), 'upload');
+          return showTemplate(t, 'Loaded ' + file.name + '.');
+        }
+        data = MP.logs.fromText(text, { kind: 'file', name: file.name });
         state.logSource = 'file';
         var s = data.summary();
         if (!state.tiles.some(function (t) { return cat[t.type].needs === 'log'; })) {
@@ -124,6 +221,17 @@
       if (d.error) return { status: 'fail', title: def.title + ' · ' + t.params.domain, body: '<p class="verdict">Lookup failed: ' + esc(d.error.message || 'network error') + '</p>', actions: [{ label: 'Retry', retryDns: true }] };
       return def.render(ctx, t.params, d.value);
     }
+    if (def.needs === 'tpl') {
+      ctx.tpl = MP.templates.get(t.params.tpl);
+      ctx.tile = t;
+      if (ctx.tpl) {
+        ctx.qa = MP.qa.forTemplate(ctx.tpl);
+        if (t.type === 'ai-review') ctx.ai = ensureAi(ctx.tpl);
+      }
+      return def.render(ctx, t.params);
+    }
+    if (def.needs === 'eml') { ctx.eml = emls[t.params.eml] || null; return def.render(ctx, t.params); }
+    if (def.needs === 'klaviyo') { ctx.kl = ensureKlaviyo(); return def.render(ctx, t.params); }
     return def.render(ctx, t.params || {});
   }
 
@@ -142,6 +250,7 @@
       if (a.upload) return '<button type="button" class="btn ghost" data-upload="1">' + esc(a.label) + '</button>';
       if (a.retryDns) return '<button type="button" class="btn ghost" data-retry="1">' + esc(a.label) + '</button>';
       if (a.fill) return '<button type="button" class="btn ghost" data-fill="' + esc(a.fill) + '" data-nofire="1">' + esc(a.label) + '</button>';
+      if (a.settings) return '<button type="button" class="btn ghost" data-settings="1">' + esc(a.label) + '</button>';
       return '<button type="button" class="btn ghost" data-cmd="' + esc(a.cmd) + '">' + esc(a.label) + '</button>';
     });
     if (out.copy) acts.push('<button type="button" class="btn ghost" data-copy="' + esc(out.copy) + '">' + ICON.copy + esc(out.copyLabel || 'Copy fix') + '</button>');
@@ -241,7 +350,15 @@
   }
 
   // ---------- Running a command ----------
-  function agentCtx() { return { viewNamed: viewNamed, data: data, tiles: state.tiles }; }
+  function agentCtx() {
+    var all = MP.templates.all();
+    return {
+      viewNamed: viewNamed, data: data, tiles: state.tiles,
+      findTemplate: MP.templates.find, activeTpl: state.activeTpl ? MP.templates.get(state.activeTpl) : (all.length === 1 ? all[0] : null),
+      hasTemplates: all.length > 0, firstTemplateName: all[0] ? all[0].name : '', templateNames: all.map(function (t) { return t.name; }),
+      hasEml: !!lastEml, lastEml: lastEml
+    };
+  }
 
   function run(text, opts) {
     text = String(text || '').trim();
@@ -287,7 +404,42 @@
         if (vn) { delete state.views[vn]; if (state.current === vn) state.current = null; said = { text: 'Deleted the view ' + vn + '.' }; }
         else said = { text: 'No saved view named "' + op.name + '".' };
       }
+      else if (op.op === 'paste') { openPaste(); said = said || { text: 'Paste your email HTML, then press Check it. You can also paste straight into the prompt box.' }; }
+      else if (op.op === 'upload') { $('#file').click(); said = said || { text: 'Pick an .html, .eml or .csv file.' }; }
+      else if (op.op === 'sampleTemplate') {
+        var st = addTemplate(MP.demoTemplate.html, MP.demoTemplate.name, 'sample');
+        specs = specs.concat(qaTiles(st));
+      }
+      else if (op.op === 'connect') {
+        if (!op.code) { specs.push({ type: 'klaviyo' }); said = { text: 'Start the connector, then type the pairing code it shows: connect klaviyo XXXX-XXXX' }; return; }
+        MP.klaviyo.setCode(op.code);
+        klState = null;
+        specs.push({ type: 'klaviyo' });
+        said = { text: 'Pairing with the Klaviyo connector…' };
+      }
+      else if (op.op === 'disconnect') { MP.klaviyo.setCode(''); klState = null; said = { text: 'Forgot the Klaviyo pairing code. Stop the connector with Ctrl+C in its terminal.' }; }
     });
+
+    // Claude may name a template instead of giving its id.
+    specs = specs.filter(function (s) {
+      if (!cat[s.type] || cat[s.type].needs !== 'tpl') return true;
+      s.params = s.params || {};
+      if (!s.params.tpl && s.params.template) {
+        var f = MP.templates.find(s.params.template) || MP.templates.all().filter(function (x) { return x.name.toLowerCase() === String(s.params.template).toLowerCase(); })[0];
+        if (!f) return false;
+        s.params = { tpl: f.id };
+      }
+      return !!s.params.tpl;
+    });
+    specs.forEach(function (s) {
+      if (s.params && s.params.tpl) state.activeTpl = s.params.tpl;
+      if (s.type === 'ai-review' && s.params && s.params.tpl) {
+        var tt = MP.templates.get(s.params.tpl);
+        if (tt) { var k = tt.id + ':' + tt.updated; if (aiResults[k] && aiResults[k].error) delete aiResults[k]; }
+      }
+      if (s.type === 'klaviyo' && klState && !klState.pending) klState = null;
+    });
+    if (plan.activeTpl) state.activeTpl = plan.activeTpl;
 
     var added = specs.length ? prepend(specs) : [];
 
@@ -298,7 +450,7 @@
         if (!hit.length && cat[op.target] && cat[op.target].needs === 'log') hit = prepend([{ type: op.target, size: op.size }]);
         hit.forEach(function (t) { t.size = op.size; });
         layoutChanged = true;
-        opSaid = opSaid || { text: hit.length ? 'Made ' + cat[op.target].title.toLowerCase() + ' ' + SIZE_NAME[op.size] + '.' : 'There\'s no ' + op.target + ' tile on screen.' };
+        opSaid = opSaid || { text: hit.length ? 'Made ' + cat[op.target].title.toLowerCase() + ' ' + SIZE_NAME[op.size] + '.' : 'There\'s no ' + cat[op.target].title + ' tile on screen.' };
       } else if (op.op === 'remove') {
         var before = state.tiles.length;
         state.tiles = state.tiles.filter(function (t) { return t.type !== op.target; });
@@ -333,10 +485,26 @@
         if (added.length > 2) said.text = 'Built ' + added.length + ' tiles. ' + said.text;
       } else if (def.needs === 'log' && !data) {
         said = { text: 'Those tiles need a sending log. Drop a CSV on the page, or type demo.' };
+      } else {
+        var o2 = output(first);
+        var sumT = added.filter(function (a) { return a.type === 'tpl-summary'; })[0];
+        var withSay = sumT ? output(sumT) : (o2.say ? o2 : null);
+        if (withSay && !withSay.say) withSay = null;
+        if (!withSay) added.some(function (a) { var o = output(a); if (o.say) { withSay = o; return true; } return false; });
+        if (first.type === 'ai-review' && o2.status === 'loading') said = { text: 'Claude is reviewing the template. This takes a few seconds.' };
+        else if (withSay) said = { text: withSay.say, level: withSay.status === 'fail' ? 'fail' : withSay.status === 'warn' ? 'warn' : null };
+        else if (first.type === 'tpl-library') said = { text: MP.templates.all().length ? 'Your templates. Tap QA or Preview, or say: qa <name>.' : 'No templates yet. Paste HTML or type: sample template' };
+        else if (cat[first.type].needs === 'tpl') { var tt2 = MP.templates.get(first.params.tpl); if (tt2) said = { text: tt2.name + ': ' + (cat[first.type].title) + '.' }; }
       }
     }
     if (said) say(said.text, said.level);
     if (layoutChanged || added.length || plan.ops.length) save();
+  }
+
+  function openPaste() {
+    var d = $('#paste');
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    setTimeout(function () { $('#paste-html').focus(); }, 30);
   }
 
   // ---------- Events ----------
@@ -406,6 +574,13 @@
       var fire = !el.hasAttribute('data-nofire') && !/yourdomain/.test(text);
       return fill(text, fire);
     }
+    if (el.hasAttribute('data-pmode') && tile) {
+      var pt = byId(tile.dataset.id);
+      if (pt) { pt.mode = el.getAttribute('data-pmode'); rerenderWhere(function (x) { return x.id === pt.id; }); var b = $('#tiles [data-id="' + pt.id + '"] [data-pmode="' + pt.mode + '"]'); if (b) b.focus(); save(); }
+      return;
+    }
+    if (el.hasAttribute('data-import')) return importKlaviyo(el.getAttribute('data-import'));
+    if (el.hasAttribute('data-settings')) return $('#settings-btn').click();
     if (el.hasAttribute('data-upload')) return $('#file').click();
     if (el.hasAttribute('data-copy')) return copy(el.getAttribute('data-copy'));
     if (el.hasAttribute('data-retry') && tile) {
@@ -470,6 +645,28 @@
       q.value = '';
       run(v);
     });
+    // Paste HTML straight into the prompt box to QA it.
+    $('#q').addEventListener('paste', function (e) {
+      var text = (e.clipboardData || window.clipboardData).getData('text');
+      if (MP.eml.looksLikeEml(text)) { e.preventDefault(); try { loadEml(text, 'pasted message'); } catch (err) { say(err.message, 'fail'); } return; }
+      if (MP.templates.looksLikeHtml(text)) {
+        e.preventDefault();
+        var t = addTemplate(text, MP.templates.nameFrom(text, 'Pasted email ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })), 'paste');
+        echo('(pasted HTML)');
+        showTemplate(t, 'Saved as "' + t.name + '".');
+      }
+    });
+    var pd = $('#paste');
+    $('#paste-go').addEventListener('click', function (e) {
+      var html = $('#paste-html').value;
+      if (!html.trim()) { e.preventDefault(); return; }
+      var name = $('#paste-name').value.trim();
+      var t = addTemplate(html, name || MP.templates.nameFrom(html, 'Pasted email'), 'paste');
+      $('#paste-html').value = ''; $('#paste-name').value = '';
+      setTimeout(function () { showTemplate(t, 'Saved as "' + t.name + '".'); }, 0);
+    });
+    pd.addEventListener('close', function () { $('#q').focus(); });
+
     $('#q').addEventListener('keydown', function (e) {
       if (e.key === 'ArrowUp' && history.length) { e.preventDefault(); hIdx = Math.max(0, hIdx - 1); this.value = history[hIdx] || ''; }
       if (e.key === 'ArrowDown' && history.length) { e.preventDefault(); hIdx = Math.min(history.length, hIdx + 1); this.value = history[hIdx] || ''; }
@@ -513,12 +710,17 @@
     $('#settings-btn').addEventListener('click', function () {
       $('#api-key').value = settings.apiKey || '';
       $('#api-model').value = settings.model || '';
+      $('#review-model').value = settings.reviewModel || '';
+      $('#kl-code').value = MP.klaviyo.getCode();
       if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
     });
     dlg.addEventListener('close', function () {
       if (dlg.returnValue === 'save') {
         settings.apiKey = $('#api-key').value.trim();
         settings.model = $('#api-model').value.trim() || 'claude-haiku-5-5';
+        settings.reviewModel = $('#review-model').value.trim() || 'claude-sonnet-5-5';
+        var kc = $('#kl-code').value.trim().toUpperCase();
+        if (kc !== MP.klaviyo.getCode()) { MP.klaviyo.setCode(kc); klState = null; }
         saveSettings();
         toast(settings.apiKey ? 'Key saved in this browser' : 'Settings saved');
       }
