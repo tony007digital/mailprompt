@@ -144,6 +144,16 @@ connector/         klaviyo-connect.js, the local read-only Klaviyo connector
 
 Adding a view means adding one entry to `js/tiles.js` and a keyword to `js/agent.js`.
 
+## Request a check or feature
+
+mailprompt is built from requests. Tell me what it should check or show next:
+
+1. [Open a request](https://github.com/tony007digital/mailprompt/issues/new?template=feature_request.yml). It's a short form.
+2. I reply yes or no, with the reason.
+3. A yes is built and shipped, and I reply on your request when it's live.
+
+No GitHub account? Comment on any of my mailprompt posts on LinkedIn and I'll log it for you.
+
 ## Roadmap
 
 - More connectors: SendGrid, Mailgun, SES, Braze, Salesforce Marketing Cloud and live PowerMTA (Klaviyo is done)
@@ -153,7 +163,7 @@ Adding a view means adding one entry to `js/tiles.js` and a keyword to `js/agent
 - Approved actions: throttle a queue, suppress an address, publish a DNS fix, each with a confirm step
 - More tiles: Gmail Postmaster data, blocklist checks
 
-Ideas and pull requests are welcome.
+Pull requests are welcome too.
 
 ## License
 
