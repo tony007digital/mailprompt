@@ -1,0 +1,19 @@
+name: Report a bug
+description: Something mailprompt flagged wrong, missed, or broke
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you typed or pasted, what you saw, and what you expected.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: "Chrome 142 on macOS"
+    validations:
+      required: false

@@ -1,0 +1,45 @@
+name: Request a check or feature
+description: Tell me what mailprompt should check or show next
+title: "Request: "
+labels: ["request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking. I read every request. If it fits the tool, I build it and reply here when it's live.
+  - type: textarea
+    id: want
+    attributes:
+      label: What should mailprompt check or show?
+      description: One request per issue works best.
+      placeholder: "Flag images wider than 600px"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: When would you use it?
+      description: What breaks today, or which tool do you open for this now?
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Email HTML QA
+        - Merge tags
+        - Outlook or dark mode
+        - DNS and authentication
+        - Sending logs
+        - Something else
+    validations:
+      required: false
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample (optional)
+      description: A short HTML snippet, header or log line that shows the problem. Remove anything private or client-owned first.
+      render: html
+    validations:
+      required: false
